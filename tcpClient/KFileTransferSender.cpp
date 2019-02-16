@@ -1,11 +1,12 @@
 #include "KFileTransferSender.h"
 
 #include <QtConcurrent/QtConcurrent>
+#include <QDateTime>
+#include <QDebug>
 #include <QMessageBox>
 
 KFileTransferSender::KFileTransferSender()
 {
-    qDebug() << __FUNCTION__ << " 线程ID:" << QThread::currentThreadId();
     command_socket = new QTcpSocket();
     pool.setMaxThreadCount(1);
 }
@@ -22,12 +23,12 @@ void KFileTransferSender::dis_connect()
     command_socket->close();
 }
 
-void KFileTransferSender::set_file(QString filePath)
+bool KFileTransferSender::set_file(QString filePath)
 {
     if(filePath.isEmpty())
     {
         qDebug()<< ERROR_CODE_1;
-        return;
+        return false;
     }
     QFileInfo info(filePath);
     filename = info.fileName();
@@ -43,11 +44,12 @@ void KFileTransferSender::set_file(QString filePath)
     if(false == isOk)
     {
         qDebug()<<ERROR_CODE_2;
+        return false;
     }
-    return;
+    return true;
 }
 
-void KFileTransferSender::send_command(int type)
+bool KFileTransferSender::send_command(int type)
 {
     QString command;
     switch (type)
@@ -76,29 +78,38 @@ void KFileTransferSender::send_command(int type)
     {
         qDebug()<< "命令代号:" << type << ERROR_CODE_3;
         file.close();
+        return false;
     }
+    return true;
 }
 
-#include <QDateTime>
 void KFileTransferSender::send_file()
 {
-    qDebug() << __FUNCTION__ << " 线程ID:" << QThread::currentThreadId();
-    //send_command(FILE_CODE);
     qint64 len = 0;
-    emit sendFileSize(filesize);
+    QTcpSocket file_socket;
+    file_socket.connectToHost(QHostAddress(IP),PORT2);
 
-    QTcpSocket *file_socket = new QTcpSocket;
-    file_socket->connectToHost(QHostAddress(IP),PORT2);
 
-    qDebug() << "开始发送文件数据信息 " << QDateTime::currentDateTime().toString("YYYY-MM-DD HH:mm:ss:zzz");
+    if (! file.isOpen())
+    {
+        bool bOk = file.open(QIODevice::ReadOnly);
+        if (bOk)
+        {
+            qDebug() << "开始发送文件数据信息 " << QDateTime::currentDateTime().toString("YYYY-MM-DD HH:mm:ss:zzz");
+        }
+        else
+        {
+            qDebug()<<ERROR_CODE_2;
+        }
+    }
+
     do
     {
 
         QByteArray  buf;
-
         buf = file.read( SEND_BLOCK_SIZE);
-        len = file_socket->write(buf);
-        file_socket->waitForBytesWritten(1);
+        len = file_socket.write(buf);
+        file_socket.waitForBytesWritten(-1);
         sendSize += len;
 
 //        qDebug() << "====>发送的数据数据大小:" << len / 1024 << "KB"
@@ -107,12 +118,12 @@ void KFileTransferSender::send_file()
 
     if(sendSize == filesize)
     {
+        file.close();
+        file_socket.disconnect();
+        file_socket.close();
+
         qDebug() << "文件 " << file.fileName() << "发送完毕 "
                  << QDateTime::currentDateTime().toString("YYYY-MM-DD HH:mm:ss:zzz");
-        file.close();
-
-//        file_socket.disconnect();
-//        file_socket.close();
     }
 }
 
@@ -128,12 +139,12 @@ void KFileTransferSender::on_read_command()
     //发送文件头响应处理
     case FILE_HEAD_REC_CODE:
     {
-#if 1
+#if 0
         ret ? send_file() : qDebug() << ERROR_CODE_4;
 #else
         if(ret)
         {
-                    fileTransferFuture = QtConcurrent::run(&pool, [this] { send_file(); });
+            fileTransferFuture = QtConcurrent::run(&pool, [this] { send_file(); });
         }
         else
         {
@@ -148,10 +159,9 @@ void KFileTransferSender::on_read_command()
         if(ret)
         {
             qint64 recv = additional.toLongLong();
-
-            qDebug() << "文件大小:" << filesize / 1024 << "KB,\t已接收数据大小:" << recv / 1024 << "KB";
-
-            emit recvSize(recv);
+            int progressVal = (recv * 100) / filesize;
+            emit progressValue(progressVal);
+            qDebug() << "文件大小:" << filesize<< ",\t已接收数据大小:" << recv;
         }
         else
         {

@@ -5,6 +5,8 @@
 #define PORT1 8888
 #define PORT2 8848
 
+#define SEND_BLOCK_SIZE (qint64)(4 * 1024 * 1024)
+
 #define ERROR           false
 #define SUCCEED         true
 

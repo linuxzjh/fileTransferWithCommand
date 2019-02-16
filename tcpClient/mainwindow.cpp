@@ -7,8 +7,10 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     mytcpsocket = new KFileTransferSender();
-    connect(mytcpsocket, SIGNAL(sendFileSize(qint64)), this, SLOT(onSendFileSize(qint64)));
-    connect(mytcpsocket, SIGNAL(recvSize(qint64)), this, SLOT(onRecvSize(qint64)));
+    connect(mytcpsocket, SIGNAL(progressValue(int)), this, SLOT(on_progressValueChanged(int)));
+
+    ui->btn_upFile->setEnabled(false);
+    ui->btn_cancel->setEnabled(false);
 }
 
 MainWindow::~MainWindow()
@@ -28,7 +30,10 @@ void MainWindow::on_btn_selectFile_clicked()
     QString filepath = QFileDialog::getOpenFileName(this, "open", "../");
     ui->lineEdit->setText(filepath);
     if(!filepath.isEmpty())
-        mytcpsocket->set_file(filepath);
+    {
+        bool bOk = mytcpsocket->set_file(filepath);
+        ui->btn_upFile->setEnabled(bOk);
+    }
 }
 
 void MainWindow::on_btn_upFile_clicked()
@@ -43,15 +48,9 @@ void MainWindow::on_btn_cancel_clicked()
     mytcpsocket->send_command(FILE_CANCEL);
 }
 
-void MainWindow::onSendFileSize(qint64 size)
+void MainWindow::on_progressValueChanged(int progressVal)
 {
-    size /= 1024;
-    ui->progressBar->setMinimum(0);
-    ui->progressBar->setMaximum(size);
-}
+    ui->progressBar->setValue(progressVal);
 
-void MainWindow::onRecvSize(qint64 recvSize)
-{
-    recvSize /= 1024;
-    ui->progressBar->setValue(recvSize);
+    ui->btn_cancel->setEnabled(progressVal);
 }

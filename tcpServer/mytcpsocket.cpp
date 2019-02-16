@@ -108,25 +108,29 @@ void KFileTransferRecevicer::on_read_file()
         flag =false;
     }
 
-    QByteArray buf = file_socket->readAll();
-    qint64 len = buf.size();
-    //qint64 len = file.write(buf);
-
-    if(len > 0)
+    qint64 dataSize = file_socket->bytesAvailable();
+    if ((dataSize >= SEND_BLOCK_SIZE) || (dataSize == (filesize - recvSize)))
     {
-       recvSize += len;
-       qDebug()<< "接收的文件数据大小为:" << len / 1024 << "KB" << "\t已接收的数据大小为:" << recvSize / 1024 << "KB";
-    }
+        QByteArray buf = file_socket->readAll();
+        //qint64 len = buf.size();
+        qint64 len = file.write(buf);
 
-    send_command(FILE_REC_CODE, SUCCEED, QString::number(recvSize));
+        if(len > 0)
+        {
+           recvSize += len;
+           qDebug()<< "接收的文件数据大小为:" << len / 1024 << "KB" << "\t已接收的数据大小为:" << recvSize / 1024 << "KB";
+        }
 
-    if(recvSize == filesize)
-    {
-        qint64 sec = startTime.secsTo(QDateTime::currentDateTime());
-        if (sec) qDebug() << "接收数据时间为:" << sec << "\t速率:"<< filesize / (1024*1024* sec) << "MB/S";
-        file.close();
-        file_socket->disconnectFromHost();
-        file_socket->close();
+        send_command(FILE_REC_CODE, SUCCEED, QString::number(recvSize));
+
+        if(recvSize == filesize)
+        {
+            qint64 sec = startTime.secsTo(QDateTime::currentDateTime());
+            if (sec) qDebug() << "接收数据时间为:" << sec << "\t速率:"<< filesize / (1024*1024* sec) << "MB/S";
+            file.close();
+            file_socket->disconnectFromHost();
+            file_socket->close();
+        }
     }
 }
 

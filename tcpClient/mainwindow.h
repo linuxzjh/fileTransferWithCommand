@@ -22,9 +22,7 @@ private slots:
     void on_btn_selectFile_clicked();
     void on_btn_upFile_clicked();
     void on_btn_cancel_clicked();
-
-    void onSendFileSize(qint64);
-    void onRecvSize(qint64);
+    void on_progressValueChanged(int);
 private:
     Ui::MainWindow *ui;
     KFileTransferSender *mytcpsocket;
