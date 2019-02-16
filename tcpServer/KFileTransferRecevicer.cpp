@@ -1,8 +1,9 @@
-#include "mytcpsocket.h"
+#include "KFileTransferRecevicer.h"
 #include<QtConcurrent/QtConcurrent>
 KFileTransferRecevicer
 ::KFileTransferRecevicer(QObject *parent)
     : QObject(parent)
+    , bCancel(false)
 {
     command_socket = new QTcpSocket();
     file_socket = new QTcpSocket();
@@ -62,6 +63,7 @@ void KFileTransferRecevicer::on_read_command()
             filename = QString(buf).section("##",1,1);
             filesize = QString(buf).section("##",2,2).toLongLong();
             recvSize = 0;
+            bCancel = false;
 
             /////////////////////////////////////////////////
             //TODO: 这里判断
@@ -93,8 +95,10 @@ void KFileTransferRecevicer::on_read_command()
         {
             //TODO: 取消文件当前传输文件时需要做的操作;
             send_command(FILE_REC_CANCEL, SUCCEED, SUCCEED_CODE_3);
-            file_socket->disconnectFromHost();
-            file_socket->close();
+            file.close();
+            bCancel = true;
+            //file_socket->disconnect();
+            //file_socket->close();
             break;
         }
     }
@@ -107,6 +111,8 @@ void KFileTransferRecevicer::on_read_file()
         startTime = QDateTime::currentDateTime();
         flag =false;
     }
+
+    if (bCancel) return;
 
     qint64 dataSize = file_socket->bytesAvailable();
     if ((dataSize >= SEND_BLOCK_SIZE) || (dataSize == (filesize - recvSize)))
@@ -125,11 +131,11 @@ void KFileTransferRecevicer::on_read_file()
 
         if(recvSize == filesize)
         {
-            qint64 sec = startTime.secsTo(QDateTime::currentDateTime());
-            if (sec) qDebug() << "接收数据时间为:" << sec << "\t速率:"<< filesize / (1024*1024* sec) << "MB/S";
+            qint64 msec = startTime.msecsTo(QDateTime::currentDateTime());
+            if (msec) qDebug() << "接收数据时间为:" << msec << "ms, \t速率:"<< (filesize * 1000) / (1024*1024* msec) << "MB/S";
             file.close();
-            file_socket->disconnectFromHost();
-            file_socket->close();
+            //file_socket->disconnect();
+            //file_socket->close();
         }
     }
 }

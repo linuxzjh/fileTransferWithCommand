@@ -5,7 +5,9 @@
 #include <QDebug>
 #include <QMessageBox>
 
-KFileTransferSender::KFileTransferSender()
+KFileTransferSender::KFileTransferSender(QObject *parent)
+    :QObject(parent)
+    , bCancel(false)
 {
     command_socket = new QTcpSocket();
     pool.setMaxThreadCount(1);
@@ -105,19 +107,18 @@ void KFileTransferSender::send_file()
 
     do
     {
-
         QByteArray  buf;
-        buf = file.read( SEND_BLOCK_SIZE);
+        buf = file.read(SEND_BLOCK_SIZE);
         len = file_socket.write(buf);
         file_socket.waitForBytesWritten(-1);
         sendSize += len;
 
-//        qDebug() << "====>发送的数据数据大小:" << len / 1024 << "KB"
-//                   << "\t已发送数据大小:" << sendSize / 1024 << "KB";
-    } while(len > 0);
+        qDebug() << "====>发送的数据数据大小:" << len / 1024 << "KB"  << "\t已发送数据大小:" << sendSize / 1024 << "KB";
+    } while(len > 0 && ! bCancel);
 
     if(sendSize == filesize)
     {
+        sendSize = 0;
         file.close();
         file_socket.disconnect();
         file_socket.close();
@@ -125,6 +126,7 @@ void KFileTransferSender::send_file()
         qDebug() << "文件 " << file.fileName() << "发送完毕 "
                  << QDateTime::currentDateTime().toString("YYYY-MM-DD HH:mm:ss:zzz");
     }
+    bCancel = false;
 }
 
 void KFileTransferSender::on_read_command()
@@ -161,7 +163,7 @@ void KFileTransferSender::on_read_command()
             qint64 recv = additional.toLongLong();
             int progressVal = (recv * 100) / filesize;
             emit progressValue(progressVal);
-            qDebug() << "文件大小:" << filesize<< ",\t已接收数据大小:" << recv;
+            //qDebug() << "文件大小:" << filesize / 1024 << "KB,\t已接收数据大小:" << recv / 1024 << "KB";
         }
         else
         {
@@ -172,6 +174,12 @@ void KFileTransferSender::on_read_command()
     //取消文件传输
     case FILE_REC_CANCEL:
     {
+        cancelFileTransferMutex.lock();
+        bCancel = true;
+        cancelFileTransferMutex.unlock();
+        sendSize = 0;
+        file.close();
+        emit progressValue(0);
         QMessageBox::information(0, "取消成功", "取消成功", QMessageBox::Ok);
         break;
     }

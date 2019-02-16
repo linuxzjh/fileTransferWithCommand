@@ -6,7 +6,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    mytcpsocket = new KFileTransferSender();
+    mytcpsocket = new KFileTransferSender(this);
     connect(mytcpsocket, SIGNAL(progressValue(int)), this, SLOT(on_progressValueChanged(int)));
 
     ui->btn_upFile->setEnabled(false);

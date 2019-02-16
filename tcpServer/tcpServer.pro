@@ -27,12 +27,12 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         main.cpp \
         mainwindow.cpp \
-    mytcpsocket.cpp
+    KFileTransferRecevicer.cpp
 
 HEADERS += \
         mainwindow.h \
-    mytcpsocket.h \
-    config.h
+    config.h \
+    KFileTransferRecevicer.h
 
 FORMS += \
         mainwindow.ui

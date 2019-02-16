@@ -2,7 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include "mytcpsocket.h"
+#include "KFileTransferRecevicer.h"
 
 namespace Ui {
 class MainWindow;

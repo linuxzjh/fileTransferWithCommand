@@ -26,6 +26,7 @@ private:
     QString filename;
     qint64 filesize;
     qint64 recvSize;
+    bool bCancel;
     QDateTime startTime;
     bool flag = true;
 public slots:

@@ -7,6 +7,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QThreadPool>
+#include <QMutex>
 #include <QFuture>
 #include "config.h"
 
@@ -14,7 +15,7 @@ class KFileTransferSender:public QObject
 {
     Q_OBJECT
 public:
-    KFileTransferSender();
+    KFileTransferSender(QObject *parent);
     void connect_to_server();           //连接至服务器
     void dis_connect();                 //取消文件连接
     bool send_command(int type);        //发送文件信息命令
@@ -36,6 +37,8 @@ private:
 
     QThreadPool pool;
     QFuture<void> fileTransferFuture;
+    QMutex cancelFileTransferMutex;
+    bool bCancel;
 };
 
 #endif // MYTCPSOCKET_H
