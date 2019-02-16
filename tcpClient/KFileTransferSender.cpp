@@ -19,12 +19,6 @@ void KFileTransferSender::connect_to_server()
     connect(command_socket,SIGNAL(readyRead()),this,SLOT(on_read_command()));
 }
 
-void KFileTransferSender::dis_connect()
-{
-    command_socket->disconnect();
-    command_socket->close();
-}
-
 bool KFileTransferSender::set_file(QString filePath)
 {
     if(filePath.isEmpty())

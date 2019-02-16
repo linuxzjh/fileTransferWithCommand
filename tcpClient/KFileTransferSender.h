@@ -9,15 +9,20 @@
 #include <QThreadPool>
 #include <QMutex>
 #include <QFuture>
+
 #include "config.h"
+#include "Singleton.h"
 
 class KFileTransferSender:public QObject
 {
     Q_OBJECT
+    DECLARESINGLETON(KFileTransferSender)
 public:
-    KFileTransferSender(QObject *parent);
+    static KFileTransferSender* GetInstance()
+    {
+        return SINGLETON(KFileTransferSender);
+    }
     void connect_to_server();           //连接至服务器
-    void dis_connect();                 //取消文件连接
     bool send_command(int type);        //发送文件信息命令
     bool set_file(QString filePath);    //设置文件
 signals:
@@ -26,6 +31,7 @@ private slots:
     void on_read_command();              //响应服务端信息
 private:
     void send_file();                    //发送文件内容数据
+    explicit KFileTransferSender(QObject *parent = nullptr);
 private:
     QTcpSocket *command_socket;
     //QTcpSocket *file_socket;

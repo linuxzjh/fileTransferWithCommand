@@ -6,7 +6,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    mytcpsocket = new KFileTransferRecevicer(this);
+    mytcpsocket = KFileTransferRecevicer::GetInstance();
 }
 
 MainWindow::~MainWindow()
