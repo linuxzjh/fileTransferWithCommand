@@ -2,13 +2,15 @@
 #define CONFIG_H
 
 #define IP "127.0.0.1"
-#define PORT1 8888
-#define PORT2 8848
+#define PORT_COMMAND 8888
+#define PORT_FILE 8848
+
+#define USE_THREAD_TRANSFER
 
 #define SEND_BLOCK_SIZE (qint64)(4 * 1024 * 1024)
 
-#define ERROR           false
-#define SUCCEED         true
+#define K_ERROR           false
+#define K_SUCCEED         true
 
 #define ERROR_CODE_1    "设置的文件路径错误 "
 #define ERROR_CODE_2    "要上传的文件打开失败 "

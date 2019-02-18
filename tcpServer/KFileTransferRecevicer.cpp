@@ -1,18 +1,20 @@
+//#include "stdafx.h"
 #include "KFileTransferRecevicer.h"
+
 #include<QtConcurrent/QtConcurrent>
-KFileTransferRecevicer
-::KFileTransferRecevicer(QObject *parent)
+
+KFileTransferRecevicer::KFileTransferRecevicer(QObject *parent)
     : QObject(parent)
     , bCancel(false)
 {
-    command_socket = new QTcpSocket();
-    file_socket = new QTcpSocket();
-    tcpServer_c = new QTcpServer();
-    tcpServer_f = new QTcpServer();
+    command_socket = new QTcpSocket(this);
+    file_socket = new QTcpSocket(this);
+    tcpServer_c = new QTcpServer(this);
+    tcpServer_f = new QTcpServer(this);
     file_socket->setReadBufferSize(64*1024*1024);
 
-    tcpServer_c->listen(QHostAddress::Any,PORT1);
-    tcpServer_f->listen(QHostAddress::Any,PORT2);
+    tcpServer_c->listen(QHostAddress::Any,PORT_COMMAND);
+    tcpServer_f->listen(QHostAddress::Any,PORT_FILE);
 
     connect(tcpServer_c,SIGNAL(newConnection()),this,SLOT(on_connect_c()));
     connect(tcpServer_f,SIGNAL(newConnection()),this,SLOT(on_connect_f()));
@@ -27,6 +29,7 @@ void KFileTransferRecevicer::on_connect_c(){
     qDebug()<<QString("[%1:%2]成功连接").arg(ip).arg(port);
     command_socket->disconnect();
     connect(command_socket,SIGNAL(readyRead()),this,SLOT(on_read_command()));
+    connect(command_socket, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(onCommandError(QAbstractSocket::SocketError)));
 }
 
 void KFileTransferRecevicer::on_connect_f(){
@@ -81,7 +84,7 @@ void KFileTransferRecevicer::on_read_command()
             }
 
             qDebug()<<QString("文件名：%1\n大小:%2 kb").arg(filename).arg(filesize/1024);
-            send_command(FILE_HEAD_REC_CODE, SUCCEED, SUCCEED_CODE_1);
+            send_command(FILE_HEAD_REC_CODE, K_SUCCEED, SUCCEED_CODE_1);
             break;
         }
         case FILE_CODE:
@@ -94,7 +97,7 @@ void KFileTransferRecevicer::on_read_command()
         case FILE_CANCEL:
         {
             //TODO: 取消文件当前传输文件时需要做的操作;
-            send_command(FILE_REC_CANCEL, SUCCEED, SUCCEED_CODE_3);
+            send_command(FILE_REC_CANCEL, K_SUCCEED, SUCCEED_CODE_3);
             file.close();
             bCancel = true;
             //file_socket->disconnect();
@@ -127,7 +130,7 @@ void KFileTransferRecevicer::on_read_file()
            qDebug()<< "接收的文件数据大小为:" << len / 1024 << "KB" << "\t已接收的数据大小为:" << recvSize / 1024 << "KB";
         }
 
-        send_command(FILE_REC_CODE, SUCCEED, QString::number(recvSize));
+        send_command(FILE_REC_CODE, K_SUCCEED, QString::number(recvSize));
 
         if(recvSize == filesize)
         {
@@ -143,4 +146,9 @@ void KFileTransferRecevicer::on_read_file()
 void KFileTransferRecevicer::onFileError(QAbstractSocket::SocketError)
 {
     qDebug() << "file_socket error:" << file_socket->errorString();
+}
+
+void KFileTransferRecevicer::onCommandError(QAbstractSocket::SocketError)
+{
+    qDebug() << "command_socket error:" << command_socket->errorString();
 }

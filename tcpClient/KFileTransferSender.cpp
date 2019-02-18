@@ -1,3 +1,4 @@
+//#include "stdafx.h"
 #include "KFileTransferSender.h"
 
 #include <QtConcurrent/QtConcurrent>
@@ -9,17 +10,33 @@ KFileTransferSender::KFileTransferSender(QObject *parent)
     :QObject(parent)
     , bCancel(false)
 {
-    command_socket = new QTcpSocket();
+    command_socket = new QTcpSocket(this);
     pool.setMaxThreadCount(1);
 }
 
-void KFileTransferSender::connect_to_server()
+void KFileTransferSender::connect_to_server(const QString &ipAddress, int port)
 {
-    command_socket->connectToHost(QHostAddress(IP),PORT1);
+    command_socket->connectToHost(QHostAddress(ipAddress), port);
     connect(command_socket,SIGNAL(readyRead()),this,SLOT(on_read_command()));
 }
 
-bool KFileTransferSender::set_file(QString filePath)
+void KFileTransferSender::sendFile(const QString &filePath)
+{
+    set_file(filePath);
+    send_command(FILE_HEAD_CODE);
+}
+
+void KFileTransferSender::unSendFile()
+{
+    send_command(FILE_CANCEL);
+}
+
+bool KFileTransferSender::isExistFile(const QString &file)
+{
+    return true;
+}
+
+bool KFileTransferSender::set_file(const QString &filePath)
 {
     if(filePath.isEmpty())
     {
@@ -83,7 +100,7 @@ void KFileTransferSender::send_file()
 {
     qint64 len = 0;
     QTcpSocket file_socket;
-    file_socket.connectToHost(QHostAddress(IP),PORT2);
+    file_socket.connectToHost(QHostAddress(IP), PORT_FILE);
 
 
     if (! file.isOpen())
@@ -157,7 +174,7 @@ void KFileTransferSender::on_read_command()
             qint64 recv = additional.toLongLong();
             int progressVal = (recv * 100) / filesize;
             emit progressValue(progressVal);
-            //qDebug() << "文件大小:" << filesize / 1024 << "KB,\t已接收数据大小:" << recv / 1024 << "KB";
+            qDebug() << "文件大小:" << filesize / 1024 << "KB,\t已接收数据大小:" << recv / 1024 << "KB";
         }
         else
         {
