@@ -23,6 +23,10 @@ private slots:
     void on_btn_upFile_clicked();
     void on_btn_cancel_clicked();
     void on_progressValueChanged(int);
+    void on_btn_freeDiskCheck_clicked();
+
+    void on_btn_isExistFile_clicked();
+
 private:
     Ui::MainWindow *ui;
     KFileTransferSender *mytcpsocket;

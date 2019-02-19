@@ -8,32 +8,55 @@
 
 KFileTransferSender::KFileTransferSender(QObject *parent)
     :QObject(parent)
-    , bCancel(false)
+    , _bCancel(false)
 {
-    command_socket = new QTcpSocket(this);
-    pool.setMaxThreadCount(1);
+    _pCommandSocket = new QTcpSocket(this);
+    _pool.setMaxThreadCount(1);
 }
 
 void KFileTransferSender::connect_to_server(const QString &ipAddress, int port)
 {
-    command_socket->connectToHost(QHostAddress(ipAddress), port);
-    connect(command_socket,SIGNAL(readyRead()),this,SLOT(on_read_command()));
+    _pCommandSocket->connectToHost(QHostAddress(ipAddress), port);
+    connect(_pCommandSocket,SIGNAL(readyRead()),this,SLOT(on_read_command()));
 }
 
-void KFileTransferSender::sendFile(const QString &filePath)
+void KFileTransferSender::sendFile(const QString &filePath, RetCallBack cbFun)
 {
-    set_file(filePath);
-    send_command(FILE_HEAD_CODE);
+    if( set_file(filePath))
+    {
+        _cbSendFile = cbFun;
+        send_command(FILE_HEAD_CODE);
+    }
 }
 
-void KFileTransferSender::unSendFile()
+void KFileTransferSender::unSendFile(RetCallBack cbFun)
 {
+    _cbUnSendFile = cbFun;
     send_command(FILE_CANCEL);
 }
 
-bool KFileTransferSender::isExistFile(const QString &file)
+void KFileTransferSender::isDiskFreeSpace(quint64 reqSpaceSize, RetCallBack cbFun)
 {
-    return true;
+    _cbIsFullSpaceWithFile = cbFun;
+    send_command(FILE_IS_DISK_FREE_SPACE_CODE, reqSpaceSize);
+}
+
+void KFileTransferSender::isExistFile(const QString &filePath, RetCallBack cbFun)
+{
+    if(filePath.isEmpty())
+    {
+        qDebug()<< ERROR_CODE_1;
+        return;
+    }
+    else
+    {
+        QFileInfo info(filePath);
+        QString fileName = info.absoluteFilePath();
+        qint64 fileSize = info.size();
+
+        _cbIsExistFile = cbFun;
+        send_command(FILE_IS_EXIST_CODE, fileName + SPLIT_ADDITION_INFO_MARK + QString::number(fileSize));
+    }
 }
 
 bool KFileTransferSender::set_file(const QString &filePath)
@@ -44,16 +67,16 @@ bool KFileTransferSender::set_file(const QString &filePath)
         return false;
     }
     QFileInfo info(filePath);
-    filename = info.fileName();
-    filesize = info.size();
-    sendSize = 0;
+    _filename = info.fileName();
+    _filesize = info.size();
+    _sendSize = 0;
 
-    if(file.isOpen())
+    if(_file.isOpen())
     {
-        file.close();
+        _file.close();
     }
-    file.setFileName(filePath);
-    bool isOk = file.open(QIODevice::ReadOnly);
+    _file.setFileName(filePath);
+    bool isOk = _file.open(QIODevice::ReadOnly);
     if(false == isOk)
     {
         qDebug()<<ERROR_CODE_2;
@@ -62,35 +85,47 @@ bool KFileTransferSender::set_file(const QString &filePath)
     return true;
 }
 
-bool KFileTransferSender::send_command(int type)
+bool KFileTransferSender::send_command(int type, QVariant additionalInfo)
 {
     QString command;
     switch (type)
     {
         case FILE_HEAD_CODE:
         {
-            command = QString("%1##%2##%3").arg(type).arg(filename).arg(filesize);
+            command = QString("%1" + QString(SPLIT_TYPE_INFO_MAEK) + "%2").arg(type).arg(_filename + SPLIT_ADDITION_INFO_MARK + QString::number(_filesize));
             break;
         }
         case FILE_CODE:
         {
-            command = QString("%1##%2##%3").arg(type).arg("").arg("");
+            command = QString("%1" + QString(SPLIT_TYPE_INFO_MAEK) + "%2").arg(type).arg("");
             break;
         }
         case FILE_CANCEL:
         {
-            command = QString("%1##%2##%3").arg(type).arg("").arg("");
+            command = QString("%1" + QString(SPLIT_TYPE_INFO_MAEK) + "%2").arg(type).arg("");
+            break;
+        }
+        case FILE_IS_EXIST_CODE:
+        {
+            QString filePath = additionalInfo.toString();
+            command = QString("%1" + QString(SPLIT_TYPE_INFO_MAEK) + "%2").arg(type).arg(filePath);
+            break;
+        }
+        case FILE_IS_DISK_FREE_SPACE_CODE:
+        {
+            quint64 fileSize = additionalInfo.toLongLong();
+            command = QString("%1" + QString(SPLIT_TYPE_INFO_MAEK) + "%2").arg(type).arg(QString::number(fileSize));
             break;
         }
         default:
             break;
     }
 
-    qint64 len = command_socket->write(command.toUtf8());
+    qint64 len = _pCommandSocket->write(command.toUtf8());
     if(len <= 0)
     {
         qDebug()<< "命令代号:" << type << ERROR_CODE_3;
-        file.close();
+        _file.close();
         return false;
     }
     return true;
@@ -103,9 +138,9 @@ void KFileTransferSender::send_file()
     file_socket.connectToHost(QHostAddress(IP), PORT_FILE);
 
 
-    if (! file.isOpen())
+    if (! _file.isOpen())
     {
-        bool bOk = file.open(QIODevice::ReadOnly);
+        bool bOk = _file.open(QIODevice::ReadOnly);
         if (bOk)
         {
             qDebug() << "开始发送文件数据信息 " << QDateTime::currentDateTime().toString("YYYY-MM-DD HH:mm:ss:zzz");
@@ -119,50 +154,50 @@ void KFileTransferSender::send_file()
     do
     {
         QByteArray  buf;
-        buf = file.read(SEND_BLOCK_SIZE);
+        buf = _file.read(SEND_BLOCK_SIZE);
         len = file_socket.write(buf);
         file_socket.waitForBytesWritten(-1);
-        sendSize += len;
+        _sendSize += len;
 
-        qDebug() << "====>发送的数据数据大小:" << len / 1024 << "KB"  << "\t已发送数据大小:" << sendSize / 1024 << "KB";
-    } while(len > 0 && ! bCancel);
+        qDebug() << "====>发送的数据数据大小:" << len / 1024 << "KB"  << "\t已发送数据大小:" << _sendSize / 1024 << "KB";
+    } while(len > 0 && ! _bCancel);
 
-    if(sendSize == filesize)
+    if(_sendSize == _filesize)
     {
-        sendSize = 0;
-        file.close();
+        _sendSize = 0;
+        _file.close();
         file_socket.disconnect();
         file_socket.close();
 
-        qDebug() << "文件 " << file.fileName() << "发送完毕 "
+        qDebug() << "文件 " << _file.fileName() << "发送完毕 "
                  << QDateTime::currentDateTime().toString("YYYY-MM-DD HH:mm:ss:zzz");
     }
-    bCancel = false;
+    _bCancel = false;
 }
 
 void KFileTransferSender::on_read_command()
 {
-    QByteArray buf = command_socket->readAll();
-    int code = QString(buf).section("##",0,0).toInt();
-    int ret = QString(buf).section("##",1,1).toInt();
-    QString additional = QString(buf).section("##",2,2);
+    QByteArray buf = _pCommandSocket->readAll();
+    int code = QString(buf).section(SPLIT_TYPE_INFO_MAEK,0,0).toInt();
+    int ret = QString(buf).section(SPLIT_TYPE_INFO_MAEK,1,1).toInt();
+    QString additionalInfo = QString(buf).section(SPLIT_TYPE_INFO_MAEK,2,2);
 
     switch(code)
     {
     //发送文件头响应处理
     case FILE_HEAD_REC_CODE:
     {
-#if 0
-        ret ? send_file() : qDebug() << ERROR_CODE_4;
-#else
+#ifdef USE_THREAD_TRANSFER
         if(ret)
         {
-            fileTransferFuture = QtConcurrent::run(&pool, [this] { send_file(); });
+            _fileTransferFuture = QtConcurrent::run(&_pool, [this] { send_file(); });
         }
         else
         {
             qDebug() << ERROR_CODE_4;
         }
+#else
+        ret ? send_file() : qDebug() << ERROR_CODE_4;
 #endif
         break;
     }
@@ -171,10 +206,10 @@ void KFileTransferSender::on_read_command()
     {
         if(ret)
         {
-            qint64 recv = additional.toLongLong();
-            int progressVal = (recv * 100) / filesize;
+            qint64 recv = additionalInfo.toLongLong();
+            int progressVal = (recv * 100) / _filesize;
             emit progressValue(progressVal);
-            qDebug() << "文件大小:" << filesize / 1024 << "KB,\t已接收数据大小:" << recv / 1024 << "KB";
+            qDebug() << "文件大小:" << _filesize / 1024 << "KB,\t已接收数据大小:" << recv / 1024 << "KB";
         }
         else
         {
@@ -182,16 +217,37 @@ void KFileTransferSender::on_read_command()
         }
         break;
     }
-    //取消文件传输
+    //取消文件传输响应处理
     case FILE_REC_CANCEL:
     {
-        cancelFileTransferMutex.lock();
-        bCancel = true;
-        cancelFileTransferMutex.unlock();
-        sendSize = 0;
-        file.close();
+        _cancelFileTransferMutex.lock();
+        _bCancel = true;
+        _cancelFileTransferMutex.unlock();
+        _sendSize = 0;
+        _file.close();
         emit progressValue(0);
-        QMessageBox::information(0, "取消成功", "取消成功", QMessageBox::Ok);
+        if (_cbUnSendFile)
+        {
+            _cbUnSendFile(ret, additionalInfo);
+        }
+        break;
+    }
+    //检查查询的文件是否存在响应处理
+    case FILE_IS_EXIST_REC_CODE:
+    {
+        if (_cbIsExistFile)
+        {
+            _cbIsExistFile(ret, additionalInfo);
+        }
+        break;
+    }
+    //判断添加文件后是否会空间不足响应处理
+    case FILE_IS_DISK_FREE_SPACE_REC_CODE:
+    {
+        if (_cbIsFullSpaceWithFile)
+        {
+            _cbIsFullSpaceWithFile(ret, additionalInfo);
+        }
         break;
     }
     default:

@@ -29,18 +29,19 @@ public slots:
     void on_connect_f();
 private:
     explicit KFileTransferRecevicer(QObject *parent = nullptr);
-    QTcpSocket *command_socket;
-    QTcpSocket *file_socket;
-    QTcpServer *tcpServer_c;
-    QTcpServer *tcpServer_f;
+    QTcpSocket *_pCommandSocket;
+    QTcpSocket *_pFileSocket;
+    QTcpServer *_pTcpServerControl;
+    QTcpServer *_pTcpServerFile;
 
-    QFile file;
-    QString filename;
-    qint64 filesize;
-    qint64 recvSize;
+    QFile _file;
+    QString _fileName;
+    qint64 _fileSize;
+    qint64 _recvSize;
+    QString _fileCacheDir;
 
-    bool bCancel;
-    QDateTime startTime;
-    bool flag = true;
+    bool _bCancel;
+    QDateTime _startTime;
+    bool _startTimeFlag;
 };
 
