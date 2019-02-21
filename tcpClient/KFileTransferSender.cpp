@@ -1,4 +1,4 @@
-//#include "stdafx.h"
+﻿//#include "stdafx.h"
 #include "KFileTransferSender.h"
 
 #include <QtConcurrent/QtConcurrent>
@@ -9,6 +9,8 @@
 KFileTransferSender::KFileTransferSender(QObject *parent)
     :QObject(parent)
     , _bCancel(false)
+    , _nextBlockSize(0)
+    , _recvDataSize(0)
 {
     _pCommandSocket = new QTcpSocket(this);
     _pool.setMaxThreadCount(1);
@@ -122,6 +124,7 @@ bool KFileTransferSender::send_command(int type, QVariant additionalInfo)
     }
 
     qint64 len = _pCommandSocket->write(command.toUtf8());
+    _pCommandSocket->waitForBytesWritten(-1);
     if(len <= 0)
     {
         qDebug()<< "命令代号:" << type << ERROR_CODE_3;
@@ -159,8 +162,15 @@ void KFileTransferSender::send_file()
         file_socket.waitForBytesWritten(-1);
         _sendSize += len;
 
+        _cancelFileTransferMutex.lock();
+        if (_bCancel)
+        {
+            _cancelFileTransferMutex.unlock();
+            break;
+        }
+        _cancelFileTransferMutex.unlock();
         qDebug() << "====>发送的数据数据大小:" << len / 1024 << "KB"  << "\t已发送数据大小:" << _sendSize / 1024 << "KB";
-    } while(len > 0 && ! _bCancel);
+    } while(len > 0);
 
     if(_sendSize == _filesize)
     {
@@ -172,16 +182,37 @@ void KFileTransferSender::send_file()
         qDebug() << "文件 " << _file.fileName() << "发送完毕 "
                  << QDateTime::currentDateTime().toString("YYYY-MM-DD HH:mm:ss:zzz");
     }
+    _cancelFileTransferMutex.lock();
     _bCancel = false;
+    _cancelFileTransferMutex.unlock();
 }
 
 void KFileTransferSender::on_read_command()
 {
-    QByteArray buf = _pCommandSocket->readAll();
-    int code = QString(buf).section(SPLIT_TYPE_INFO_MAEK,0,0).toInt();
-    int ret = QString(buf).section(SPLIT_TYPE_INFO_MAEK,1,1).toInt();
-    QString additionalInfo = QString(buf).section(SPLIT_TYPE_INFO_MAEK,2,2);
+    QDataStream out(_pCommandSocket);
+    out.setVersion(QDataStream::Qt_5_9);
+    if (_nextBlockSize == 0)
+    {
+        if (_pCommandSocket->bytesAvailable() >= sizeof(qint64))
+        {
+            out >> _nextBlockSize;
+        }
+    }
 
+    if (_pCommandSocket->bytesAvailable() >= _nextBlockSize)
+    {
+        out >> _cacheData;
+        dealReadCommand();
+        _cacheData.clear();
+        _nextBlockSize = 0;
+    }
+}
+
+void KFileTransferSender::dealReadCommand()
+{
+    int code = _cacheData.section(SPLIT_TYPE_INFO_MAEK,0,0).toInt();
+    int ret = _cacheData.section(SPLIT_TYPE_INFO_MAEK,1,1).toInt();
+    QString additionalInfo = _cacheData.section(SPLIT_TYPE_INFO_MAEK,2,2);
     switch(code)
     {
     //发送文件头响应处理
@@ -224,7 +255,10 @@ void KFileTransferSender::on_read_command()
         _bCancel = true;
         _cancelFileTransferMutex.unlock();
         _sendSize = 0;
-        _file.close();
+        if (_file.isOpen())
+        {
+            _file.close();
+        }
         emit progressValue(0);
         if (_cbUnSendFile)
         {
@@ -251,6 +285,7 @@ void KFileTransferSender::on_read_command()
         break;
     }
     default:
+        qDebug() << __FUNCTION__ << ":read command error.";
         break;
     }
 }

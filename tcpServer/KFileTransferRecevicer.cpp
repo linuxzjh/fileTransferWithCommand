@@ -1,4 +1,4 @@
-//#include "stdafx.h"
+﻿//#include "stdafx.h"
 #include "KFileTransferRecevicer.h"
 #include "kfiletransfercachemanage.h"
 
@@ -49,11 +49,23 @@ void KFileTransferRecevicer::on_connect_f(){
 
 void KFileTransferRecevicer::send_command(int code, int ret, QString additional)
 {
+    QByteArray data;
+    QDataStream in(&data, QIODevice::WriteOnly);
+    in.setVersion(QDataStream::Qt_5_9);
     QString head = QString("%1" + QString(SPLIT_TYPE_INFO_MAEK) + "%2" + SPLIT_TYPE_INFO_MAEK +"%3").arg(code).arg(ret).arg(additional);
-    qint64 len = _pCommandSocket->write(head.toUtf8());
+    //QString head = QString("%1##%2##%3").arg(code).arg(ret).arg(additional);
+    in << qint64(2) << head;
+    in.device()->seek(0);
+    in << qint64(data.size() - sizeof(qint64));
+    qint64 len = _pCommandSocket->write(data);
+    _pCommandSocket->waitForBytesWritten(-1);
     if(len <= 0)
     {
         qDebug()<<"命令发送失败 "<<code;
+    }
+    else
+    {
+        qDebug() << "发送命令:" << code << "执行结果:" << ret << "附加信息:" << additional;
     }
 }
 
@@ -100,9 +112,20 @@ void KFileTransferRecevicer::on_read_command()
     case FILE_CANCEL:
     {
         //TODO: 取消文件当前传输文件时需要做的操作;
-        send_command(FILE_REC_CANCEL, K_SUCCEED, SUCCEED_CODE_3);
-        _file.close();
-        _bCancel = true;
+        if(! _bCancel)
+        {
+            if(_file.isOpen())
+            {
+                _file.close();
+                _file.remove();
+            }
+            _bCancel = true;
+            send_command(FILE_REC_CANCEL, K_SUCCEED, SUCCEED_CODE_3);
+        }
+        else
+        {
+            send_command(FILE_REC_CANCEL, K_ERROR, ERROR_CODE_7);
+        }
         break;
     }
     case FILE_IS_EXIST_CODE:
@@ -152,6 +175,7 @@ void KFileTransferRecevicer::on_read_file()
            qDebug()<< "接收的文件数据大小为:" << len / 1024 << "KB" << "\t已接收的数据大小为:" << _recvSize / 1024 << "KB";
         }
 
+        QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents); //让系统去处理其他的接收命令
         send_command(FILE_REC_CODE, K_SUCCEED, QString::number(_recvSize));
 
         if(_recvSize == _fileSize)

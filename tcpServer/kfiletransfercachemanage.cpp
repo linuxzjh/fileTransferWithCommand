@@ -1,3 +1,4 @@
+﻿//#include "stdafx.h"
 #include "kfiletransfercachemanage.h"
 #include <Windows.h>
 

@@ -31,6 +31,7 @@ private:
     void send_file();                                                                   //发送文件内容数据
     bool send_command(int type, QVariant additionalInfo = "");                          //发送文件信息命令
     bool set_file(const QString& filePath);                                             //设置文件
+    void dealReadCommand();
 private:
     QTcpSocket *_pCommandSocket;
     //QTcpSocket *file_socket;
@@ -44,6 +45,9 @@ private:
     QFuture<void> _fileTransferFuture;
     QMutex _cancelFileTransferMutex;
     bool _bCancel;
+    qint64 _nextBlockSize;      //下一块大小
+    qint64 _recvDataSize;       //已接收数据大小
+    QString _cacheData;         //缓存数据容器
 
     RetCallBack _cbSendFile;                                                             //发送文件执行回调
     RetCallBack _cbUnSendFile;                                                           //取消文件执行回调

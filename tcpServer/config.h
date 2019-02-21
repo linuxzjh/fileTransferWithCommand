@@ -22,6 +22,7 @@
 #define ERROR_CODE_4    "文件头部信息接收失败 "
 #define ERROR_CODE_5    "文件数据接收失败 "
 #define ERROR_CODE_6    "磁盘空间已不足,无法存储该文件 "
+#define ERROR_CODE_7    "不能再次点击取消操作 "
 
 #define SUCCEED_CODE_1    "文件头部信息接收成功 "
 #define SUCCEED_CODE_2    "接收端文件数据接收完成 "
