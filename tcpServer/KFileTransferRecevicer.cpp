@@ -89,6 +89,7 @@ void KFileTransferRecevicer::on_read_command()
         //1.磁盘的大小是否足够，
         //2.文件是否已经存在等信息
 
+        _file.close();
         _file.setFileName(_fileName);
         bool isOk = _file.open(QIODevice::WriteOnly);
         if(false == isOk)
@@ -138,7 +139,7 @@ void KFileTransferRecevicer::on_read_command()
     {
         //TODO: 判断添加文件后是否会空间不足;
         quint64 fileSize = additionalInfo.toLongLong();
-        quint64 freeSpaceSize = KFileTransferCacheManage::getDiskFreeSpace(_fileCacheDir.left(2));
+        quint64 freeSpaceSize = KFileTransferCacheManage::getDiskFreeSpace(_fileCacheDir);
         if (fileSize <= freeSpaceSize)
         {
             send_command(FILE_IS_DISK_FREE_SPACE_REC_CODE, K_SUCCEED, SUCCEED_CODE_5);

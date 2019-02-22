@@ -228,7 +228,14 @@ void KFileTransferSender::dealReadCommand()
             qDebug() << ERROR_CODE_4;
         }
 #else
-        ret ? send_file() : qDebug() << ERROR_CODE_4;
+        if(ret)
+        {
+            send_file();
+        }
+        else
+        {
+            qDebug() << ERROR_CODE_4;
+        }
 #endif
         break;
     }

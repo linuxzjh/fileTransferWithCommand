@@ -6,7 +6,7 @@
 #define PORT_COMMAND 8888
 #define PORT_FILE 8848
 
-#define USE_THREAD_TRANSFER
+//#define USE_THREAD_TRANSFER
 
 #define SEND_BLOCK_SIZE (qint64)(4 * 1024 * 1024)
 
