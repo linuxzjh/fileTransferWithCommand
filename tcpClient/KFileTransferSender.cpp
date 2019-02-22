@@ -1,11 +1,15 @@
-//#include "stdafx.h"
+﻿//#include "stdafx.h"
 #include "KFileTransferSender.h"
 
+#ifndef USE_QTCREATOR
+#include "KSignalSpy.h"
+#else
+#include <QSignalSpy>
+#endif 
 #include <QtConcurrent/QtConcurrent>
 #include <QDateTime>
 #include <QDebug>
 #include <QMessageBox>
-#include <QSignalSpy>
 
 KFileTransferSender::KFileTransferSender(QObject *parent)
     :QObject(parent)
@@ -45,7 +49,11 @@ bool KFileTransferSender::cancelSendFile()
 {
     send_command(FILE_CANCEL);
 
-    QSignalSpy spy(this, SIGNAL(cancelSendFileRspSig(int,QVariant)));
+#ifndef USE_QTCREATOR
+	KSignalSpy spy(this, SIGNAL(cancelSendFileRspSig(int, QVariant)));
+#else
+	QSignalSpy spy(this, SIGNAL(cancelSendFileRspSig(int, QVariant)));
+#endif // !USE_QTCREATOR
     if (spy.wait(_timeoutMsec))
     {
         QList<QVariant> arguments = spy.takeFirst();
@@ -65,7 +73,11 @@ bool KFileTransferSender::cancelSendFile()
 bool KFileTransferSender::isDiskFreeSpace(quint64 reqSpaceSize)
 {
     send_command(FILE_IS_DISK_FREE_SPACE_CODE, reqSpaceSize);
-    QSignalSpy spy(this, SIGNAL(isDiskFreeSpaceRspSig(int,QVariant)));
+#ifndef USE_QTCREATOR
+	KSignalSpy spy(this, SIGNAL(isDiskFreeSpaceRspSig(int, QVariant)));
+#else
+	QSignalSpy spy(this, SIGNAL(isDiskFreeSpaceRspSig(int, QVariant)));
+#endif // !USE_QTCREATOR
     if (spy.wait(_timeoutMsec))
     {
         QList<QVariant> arguments = spy.takeFirst();
@@ -97,7 +109,11 @@ void KFileTransferSender::isExistFile(QList<checkfileStru>& fileStruList)
             qint64 fileSize = info.size();
 
             send_command(FILE_IS_EXIST_CODE, fileName + SPLIT_ADDITION_INFO_MARK + QString::number(fileSize));
-            QSignalSpy spy(this, SIGNAL(isExistFileRspSig(int,QVariant)));
+#ifndef USE_QTCREATOR
+			KSignalSpy spy(this, SIGNAL(isExistFileRspSig(int, QVariant)));
+#else
+			QSignalSpy spy(this, SIGNAL(isExistFileRspSig(int, QVariant)));
+#endif // !USE_QTCREATOR
             if (spy.wait(_timeoutMsec))
             {
                 QList<QVariant> arguments = spy.takeFirst();

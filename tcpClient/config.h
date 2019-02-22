@@ -1,4 +1,4 @@
-#ifndef CONFIG_H
+﻿#ifndef CONFIG_H
 #define CONFIG_H
 
 #include <QtCore>
@@ -9,6 +9,7 @@
 #define PORT_FILE 8848
 
 #define USE_THREAD_TRANSFER
+#define USE_QTCREATOR
 
 #define SEND_BLOCK_SIZE (qint64)(4 * 1024 * 1024)
 
@@ -60,7 +61,7 @@
 typedef struct _checkfileStru
 {
     QString filePath;
-    qint64  fileSize;
+    qint64  fileSize = 0;
     bool    bExist = true;
 } checkfileStru;
 
