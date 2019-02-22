@@ -1,4 +1,4 @@
-﻿#include "mainwindow.h"
+#include "mainwindow.h"
 #include "ui_mainwindow.h"
 
 #include <QMessageBox>
@@ -10,6 +10,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
     mytcpsocket = new KFileTransferSender(parent);
     connect(mytcpsocket, SIGNAL(progressValue(int)), this, SLOT(on_progressValueChanged(int)));
+    connect(mytcpsocket, SIGNAL(errorState(int,int)), this, SLOT(on_error_state(int, int)));
 
     ui->btn_upFile->setEnabled(false);
     ui->btn_cancel->setEnabled(false);
@@ -23,7 +24,8 @@ MainWindow::~MainWindow()
 void MainWindow::on_btn_connect_clicked()
 {
     //连接服务器
-    mytcpsocket->connect_to_server(IP, PORT_COMMAND);
+    bool bconnected = mytcpsocket->connect_to_server(IP, PORT_COMMAND);
+    qDebug() << (bconnected ? "连接成功" : "连接超时");
 }
 
 void MainWindow::on_btn_selectFile_clicked()
@@ -50,13 +52,7 @@ void MainWindow::on_btn_upFile_clicked()
 void MainWindow::on_btn_cancel_clicked()
 {
     //取消上传
-    mytcpsocket->unSendFile([this](int& argRet, QString& argAdditional) mutable {
-        if(argRet)
-        {
-            QMessageBox::information(this, tr("取消上传"), argAdditional);
-            //发送信号,通知外部做相应处理;
-        }
-    });
+    mytcpsocket->cancelSendFile();
 }
 
 void MainWindow::on_progressValueChanged(int progressVal)
@@ -66,15 +62,19 @@ void MainWindow::on_progressValueChanged(int progressVal)
     ui->btn_cancel->setEnabled(progressVal);
 }
 
+void MainWindow::on_error_state(int code, int subCode)
+{
+    qDebug() << __FUNCTION__ << " error: code=" << code << "\tsubCode=" << subCode;
+}
+
 void MainWindow::on_btn_freeDiskCheck_clicked()
 {
     QString filePath = ui->lineEdit->text();
     QFileInfo fileInfo(filePath);
     if (fileInfo.isFile())
     {
-        mytcpsocket->isDiskFreeSpace(fileInfo.size(), [this](int& argRet, QString& argAdditional) {
-            QMessageBox::information(this, tr("磁盘空间检查 "), argAdditional);
-        });
+        bool bDiskFreeSpace = mytcpsocket->isDiskFreeSpace(fileInfo.size());
+        qDebug() << (bDiskFreeSpace ? "缓存目录有多余的磁盘空间 " : "缓存目录没有多余的磁盘空间 ");
     }
 }
 
@@ -84,8 +84,18 @@ void MainWindow::on_btn_isExistFile_clicked()
     QFileInfo fileInfo(filePath);
     if (fileInfo.isFile())
     {
-        mytcpsocket->isExistFile(fileInfo.absoluteFilePath(), [this](int& argRet, QString& argAdditional) {
-            QMessageBox::information(this, tr("文件是否存在"), argAdditional);
-        });
+        checkfileStru fileStru;
+        fileStru.filePath = fileInfo.absoluteFilePath();
+        fileStru.fileSize = fileInfo.size();
+        fileStru.bExist = false;
+
+        QList<checkfileStru> fileList;
+        fileList.append(fileStru);
+        mytcpsocket->isExistFile(fileList);
+
+        for (checkfileStru fileInfo : fileList)
+        {
+            qDebug() << "fileName:" << fileInfo.filePath << (fileInfo.bExist ? " 服务器该文件存在 " : " 服务器该文件不存在 ");
+        }
     }
 }

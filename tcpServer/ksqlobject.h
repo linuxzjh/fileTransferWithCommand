@@ -1,4 +1,4 @@
-﻿#ifndef KSQLOBJECT_H
+#ifndef KSQLOBJECT_H
 #define KSQLOBJECT_H
 
 #include <QSqlDatabase>

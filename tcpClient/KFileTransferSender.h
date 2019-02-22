@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "config.h"
 
@@ -11,20 +11,23 @@
 #include <QMutex>
 #include <QFuture>
 
-typedef std::function<void(int&, QString&)> RetCallBack;    //参数：命令执行是否成功,附加信息
-
 class KFileTransferSender:public QObject
 {
     Q_OBJECT
 public:
     explicit KFileTransferSender(QObject *parent = nullptr);
-    void connect_to_server(const QString &ipAddress, int port);                         //连接至服务器
-    void sendFile(const QString &filePath, RetCallBack cbFun = nullptr);                //发送文件
-    void unSendFile(RetCallBack cbFun = nullptr);                                       //取消文件
-    void isExistFile(const QString &filePath, RetCallBack cbFun = nullptr);             //检查文件是否存在,
-    void isDiskFreeSpace(quint64 reqSpaceSize, RetCallBack cbFun = nullptr);            //检查磁盘空间是否不足， reqSpaceSize--字节
+    bool connect_to_server(const QString &ipAddress, int port);                         //连接至服务器
+    void sendFile(const QString &filePath);                                             //发送文件
+    bool cancelSendFile();                                                              //取消文件
+    void isExistFile(QList<checkfileStru>& fileStruList);                               //检查文件是否存在
+    bool isDiskFreeSpace(quint64 reqSpaceSize);                                         //检查磁盘空间是否不足
 signals:
     void progressValue(int progressVal);                                                //服务端已接受的数据进度
+    void errorState(int code, int subCode);                                             //错误状态
+
+    void isExistFileRspSig(int type, QVariant retValue);                                //查询文件是否存在响应信号
+    void isDiskFreeSpaceRspSig(int type, QVariant retValue);                            //查询磁盘空间是否不足响应信号
+    void cancelSendFileRspSig(int type, QVariant retValue);                             //取消文件传输响应信号
 private slots:
     void on_read_command();                                                             //响应服务端信息
 private:
@@ -34,7 +37,6 @@ private:
     void dealReadCommand();
 private:
     QTcpSocket *_pCommandSocket;
-    //QTcpSocket *file_socket;
 
     QFile _file;
     QString _filename;
@@ -49,8 +51,5 @@ private:
     qint64 _recvDataSize;       //已接收数据大小
     QString _cacheData;         //缓存数据容器
 
-    RetCallBack _cbSendFile;                                                             //发送文件执行回调
-    RetCallBack _cbUnSendFile;                                                           //取消文件执行回调
-    RetCallBack _cbIsExistFile;                                                          //检查文件是否存在执行回调
-    RetCallBack _cbIsFullSpaceWithFile;                                                  //检查磁盘空间是否不足执行回调
+    int _timeoutMsec;           //超时时间
 };

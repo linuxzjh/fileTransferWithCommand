@@ -1,63 +1,116 @@
-﻿//#include "stdafx.h"
+//#include "stdafx.h"
 #include "KFileTransferSender.h"
 
 #include <QtConcurrent/QtConcurrent>
 #include <QDateTime>
 #include <QDebug>
 #include <QMessageBox>
+#include <QSignalSpy>
 
 KFileTransferSender::KFileTransferSender(QObject *parent)
     :QObject(parent)
     , _bCancel(false)
     , _nextBlockSize(0)
     , _recvDataSize(0)
+    , _timeoutMsec(1000)
 {
     _pCommandSocket = new QTcpSocket(this);
     _pool.setMaxThreadCount(1);
 }
 
-void KFileTransferSender::connect_to_server(const QString &ipAddress, int port)
+bool KFileTransferSender::connect_to_server(const QString &ipAddress, int port)
 {
     _pCommandSocket->connectToHost(QHostAddress(ipAddress), port);
-    connect(_pCommandSocket,SIGNAL(readyRead()),this,SLOT(on_read_command()));
+    bool ret = _pCommandSocket->waitForConnected(_timeoutMsec);
+    if (ret)
+    {
+        connect(_pCommandSocket,SIGNAL(readyRead()),this,SLOT(on_read_command()));
+    }
+    else
+    {
+        emit errorState(K_NETWORK_ERROR, K_NETWORK_DISCONNECTED_ERROR);
+    }
+    return ret;
 }
 
-void KFileTransferSender::sendFile(const QString &filePath, RetCallBack cbFun)
+void KFileTransferSender::sendFile(const QString &filePath)
 {
     if( set_file(filePath))
     {
-        _cbSendFile = cbFun;
         send_command(FILE_HEAD_CODE);
     }
 }
 
-void KFileTransferSender::unSendFile(RetCallBack cbFun)
+bool KFileTransferSender::cancelSendFile()
 {
-    _cbUnSendFile = cbFun;
     send_command(FILE_CANCEL);
-}
 
-void KFileTransferSender::isDiskFreeSpace(quint64 reqSpaceSize, RetCallBack cbFun)
-{
-    _cbIsFullSpaceWithFile = cbFun;
-    send_command(FILE_IS_DISK_FREE_SPACE_CODE, reqSpaceSize);
-}
-
-void KFileTransferSender::isExistFile(const QString &filePath, RetCallBack cbFun)
-{
-    if(filePath.isEmpty())
+    QSignalSpy spy(this, SIGNAL(cancelSendFileRspSig(int,QVariant)));
+    if (spy.wait(_timeoutMsec))
     {
-        qDebug()<< ERROR_CODE_1;
-        return;
+        QList<QVariant> arguments = spy.takeFirst();
+        if (arguments.at(0).toInt() == FILE_REC_CANCEL)
+        {
+            return arguments.at(1).toInt();
+        }
     }
     else
     {
-        QFileInfo info(filePath);
-        QString fileName = info.absoluteFilePath();
-        qint64 fileSize = info.size();
+        emit errorState(K_RESPONSE_TIMEOUT, K_RESPONSE_CANCEL_FILE_TIMEOUT);
+        return false;
+    }
+    return false;
+}
 
-        _cbIsExistFile = cbFun;
-        send_command(FILE_IS_EXIST_CODE, fileName + SPLIT_ADDITION_INFO_MARK + QString::number(fileSize));
+bool KFileTransferSender::isDiskFreeSpace(quint64 reqSpaceSize)
+{
+    send_command(FILE_IS_DISK_FREE_SPACE_CODE, reqSpaceSize);
+    QSignalSpy spy(this, SIGNAL(isDiskFreeSpaceRspSig(int,QVariant)));
+    if (spy.wait(_timeoutMsec))
+    {
+        QList<QVariant> arguments = spy.takeFirst();
+        if (arguments.at(0).toInt() == FILE_IS_DISK_FREE_SPACE_REC_CODE)
+        {
+            return arguments.at(1).toInt();
+        }
+    }
+    else
+    {
+        emit errorState(K_RESPONSE_TIMEOUT, K_RESPONSE_IS_DISK_FREE_SPACE_FILE_TIMEOUT);
+        return false;
+    }
+    return false;
+}
+
+void KFileTransferSender::isExistFile(QList<checkfileStru>& fileStruList)
+{
+    for (checkfileStru &fileStru : fileStruList)
+    {
+        if(fileStru.filePath.isEmpty())
+        {
+            qDebug()<< __FUNCTION__ << fileStru.filePath <<  ERROR_CODE_1;
+        }
+        else
+        {
+            QFileInfo info(fileStru.filePath);
+            QString fileName = info.absoluteFilePath();
+            qint64 fileSize = info.size();
+
+            send_command(FILE_IS_EXIST_CODE, fileName + SPLIT_ADDITION_INFO_MARK + QString::number(fileSize));
+            QSignalSpy spy(this, SIGNAL(isExistFileRspSig(int,QVariant)));
+            if (spy.wait(_timeoutMsec))
+            {
+                QList<QVariant> arguments = spy.takeFirst();
+                if (arguments.at(0).toInt() == FILE_IS_EXIST_REC_CODE)
+                {
+                    fileStru.bExist = arguments.at(1).toInt();
+                }
+            }
+            else
+            {
+                emit errorState(K_RESPONSE_TIMEOUT, K_RESPONSE_IS_EXIST_FILE_TIMEOUT);
+            }
+        }
     }
 }
 
@@ -267,28 +320,19 @@ void KFileTransferSender::dealReadCommand()
             _file.close();
         }
         emit progressValue(0);
-        if (_cbUnSendFile)
-        {
-            _cbUnSendFile(ret, additionalInfo);
-        }
+        emit cancelSendFileRspSig(code, QVariant(ret));
         break;
     }
     //检查查询的文件是否存在响应处理
     case FILE_IS_EXIST_REC_CODE:
     {
-        if (_cbIsExistFile)
-        {
-            _cbIsExistFile(ret, additionalInfo);
-        }
+        emit isExistFileRspSig(code, QVariant(ret));
         break;
     }
     //判断添加文件后是否会空间不足响应处理
     case FILE_IS_DISK_FREE_SPACE_REC_CODE:
     {
-        if (_cbIsFullSpaceWithFile)
-        {
-            _cbIsFullSpaceWithFile(ret, additionalInfo);
-        }
+        emit isDiskFreeSpaceRspSig(code, QVariant(ret));
         break;
     }
     default:

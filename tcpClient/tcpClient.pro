@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui network concurrent
+QT       += core gui network concurrent testlib
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 TARGET = tcpClient

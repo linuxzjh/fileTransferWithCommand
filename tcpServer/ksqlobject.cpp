@@ -1,4 +1,4 @@
-﻿#include "ksqlobject.h"
+#include "ksqlobject.h"
 
 #include <QDebug>
 

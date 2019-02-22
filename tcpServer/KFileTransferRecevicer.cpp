@@ -1,4 +1,4 @@
-﻿//#include "stdafx.h"
+//#include "stdafx.h"
 #include "KFileTransferRecevicer.h"
 #include "kfiletransfercachemanage.h"
 
@@ -8,7 +8,8 @@ KFileTransferRecevicer::KFileTransferRecevicer(QObject *parent)
     : QObject(parent)
     , _bCancel(false)
 {
-    setCacheDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
+    QString cacheDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + "/mediaCache/";
+    setCacheDir(cacheDir);
     _pCommandSocket = new QTcpSocket(this);
     _pFileSocket = new QTcpSocket(this);
     _pTcpServerControl = new QTcpServer(this);
