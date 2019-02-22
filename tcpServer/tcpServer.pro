@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT       += core gui sql
 QT += network
 QT += concurrent
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
@@ -30,14 +30,16 @@ SOURCES += \
         main.cpp \
         mainwindow.cpp \
     KFileTransferRecevicer.cpp \
-    kfiletransfercachemanage.cpp
+    kfiletransfercachemanage.cpp \
+    ksqlobject.cpp
 
 HEADERS += \
         mainwindow.h \
     config.h \
     KFileTransferRecevicer.h \
     Singleton.h \
-    kfiletransfercachemanage.h
+    kfiletransfercachemanage.h \
+    ksqlobject.h
 
 FORMS += \
         mainwindow.ui

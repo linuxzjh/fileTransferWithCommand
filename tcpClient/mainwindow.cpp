@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+﻿#include "mainwindow.h"
 #include "ui_mainwindow.h"
 
 #include <QMessageBox>
@@ -80,5 +80,12 @@ void MainWindow::on_btn_freeDiskCheck_clicked()
 
 void MainWindow::on_btn_isExistFile_clicked()
 {
-
+    QString filePath = ui->lineEdit->text();
+    QFileInfo fileInfo(filePath);
+    if (fileInfo.isFile())
+    {
+        mytcpsocket->isExistFile(fileInfo.absoluteFilePath(), [this](int& argRet, QString& argAdditional) {
+            QMessageBox::information(this, tr("文件是否存在"), argAdditional);
+        });
+    }
 }

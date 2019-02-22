@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "config.h"
 
@@ -21,7 +21,7 @@ public:
     void connect_to_server(const QString &ipAddress, int port);                         //连接至服务器
     void sendFile(const QString &filePath, RetCallBack cbFun = nullptr);                //发送文件
     void unSendFile(RetCallBack cbFun = nullptr);                                       //取消文件
-    void isExistFile(const QString &filePath, RetCallBack cbFun = nullptr);             //检查文件是否存在
+    void isExistFile(const QString &filePath, RetCallBack cbFun = nullptr);             //检查文件是否存在,
     void isDiskFreeSpace(quint64 reqSpaceSize, RetCallBack cbFun = nullptr);            //检查磁盘空间是否不足， reqSpaceSize--字节
 signals:
     void progressValue(int progressVal);                                                //服务端已接受的数据进度

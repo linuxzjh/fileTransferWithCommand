@@ -7,8 +7,8 @@
 KFileTransferRecevicer::KFileTransferRecevicer(QObject *parent)
     : QObject(parent)
     , _bCancel(false)
-    , _fileCacheDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation))
 {
+    setCacheDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation));
     _pCommandSocket = new QTcpSocket(this);
     _pFileSocket = new QTcpSocket(this);
     _pTcpServerControl = new QTcpServer(this);
@@ -20,6 +20,24 @@ KFileTransferRecevicer::KFileTransferRecevicer(QObject *parent)
 
     connect(_pTcpServerControl,SIGNAL(newConnection()),this,SLOT(on_connect_c()));
     connect(_pTcpServerFile,SIGNAL(newConnection()),this,SLOT(on_connect_f()));
+}
+
+bool KFileTransferRecevicer::isExistFileInCacheDir(const QString &fileName, qint64 fileSize)
+{
+    QFileInfo info(_fileCacheDir + "/" + fileName);
+    qDebug() << __FUNCTION__ << info.absoluteFilePath();
+    return (info.exists() && (info.size() == fileSize));
+}
+
+void KFileTransferRecevicer::setCacheDir(const QString &dir)
+{
+    QDir mdir(dir);
+    if (! mdir.exists())
+    {
+        mdir.mkdir(dir);
+        qDebug() << __FUNCTION__ << "缓存目录创建成功";
+    }
+    _fileCacheDir = dir;
 }
 
 void KFileTransferRecevicer::on_connect_c(){
@@ -89,7 +107,7 @@ void KFileTransferRecevicer::on_read_command()
         //1.磁盘的大小是否足够，
         //2.文件是否已经存在等信息
 
-        _file.close();
+        QDir::setCurrent(_fileCacheDir);
         _file.setFileName(_fileName);
         bool isOk = _file.open(QIODevice::WriteOnly);
         if(false == isOk)
@@ -117,6 +135,7 @@ void KFileTransferRecevicer::on_read_command()
         {
             if(_file.isOpen())
             {
+                QDir::setCurrent(_fileCacheDir);
                 _file.close();
                 _file.remove();
             }
@@ -131,15 +150,33 @@ void KFileTransferRecevicer::on_read_command()
     }
     case FILE_IS_EXIST_CODE:
     {
-        //TODO: 检查查询的文件是否存在;
-        send_command(FILE_IS_EXIST_REC_CODE, K_SUCCEED, SUCCEED_CODE_4);
+        if (additionalInfo.isEmpty()) { qDebug() << ERROR_CODE_8; return; }
+        QString fileName = additionalInfo.section(SPLIT_ADDITION_INFO_MARK, 0, 0);
+        qint64 fileSize = additionalInfo.section(SPLIT_ADDITION_INFO_MARK, 1, 1).toLongLong();
+
+        fileName = fileName.right(fileName.size()-fileName.lastIndexOf('/') - 1);
+
+        if (isExistFileInCacheDir(fileName, fileSize))
+        {
+            send_command(FILE_IS_EXIST_REC_CODE, K_SUCCEED, SUCCEED_CODE_4);
+        }
+        else
+        {
+            send_command(FILE_IS_EXIST_REC_CODE, K_ERROR, ERROR_CODE_10);
+        }
         break;
     }
     case FILE_IS_DISK_FREE_SPACE_CODE:
     {
         //TODO: 判断添加文件后是否会空间不足;
-        quint64 fileSize = additionalInfo.toLongLong();
-        quint64 freeSpaceSize = KFileTransferCacheManage::getDiskFreeSpace(_fileCacheDir);
+        qint64 fileSize = additionalInfo.toLongLong();
+        QString sreachDir = "";
+#ifdef Q_OS_WIN
+        sreachDir = _fileCacheDir.left(2);
+#elif Q_OS_LINUX
+        sreachDir = "/" + _fileCacheDir.section("/", 0, 0);
+#endif
+        qint64 freeSpaceSize = KFileTransferCacheManage::getDiskFreeSpace(sreachDir);
         if (fileSize <= freeSpaceSize)
         {
             send_command(FILE_IS_DISK_FREE_SPACE_REC_CODE, K_SUCCEED, SUCCEED_CODE_5);
@@ -183,6 +220,7 @@ void KFileTransferRecevicer::on_read_file()
         {
             qint64 msec = _startTime.msecsTo(QDateTime::currentDateTime());
             if (msec) qDebug() << "接收数据时间为:" << msec << "ms, \t速率:"<< (_fileSize * 1000) / (1024*1024* msec) << "MB/S";
+            QDir::setCurrent(_fileCacheDir);
             _file.close();
         }
     }

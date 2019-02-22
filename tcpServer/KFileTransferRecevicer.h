@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "config.h"
 #include "Singleton.h"
 
@@ -29,6 +29,8 @@ public slots:
     void on_connect_f();
 private:
     explicit KFileTransferRecevicer(QObject *parent = nullptr);
+    bool isExistFileInCacheDir(const QString& fileName, qint64 fileSize);
+    void setCacheDir(const QString& dir);
     QTcpSocket *_pCommandSocket;
     QTcpSocket *_pFileSocket;
     QTcpServer *_pTcpServerControl;
