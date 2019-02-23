@@ -174,8 +174,13 @@ void KFileTransferRecevicer::on_read_command()
         QString sreachDir = "";
 #ifdef Q_OS_WIN
         sreachDir = _fileCacheDir.left(2);
-#elif Q_OS_LINUX
+#else
+#ifdef Q_OS_LINUX
+        QString str1 = _fileCacheDir.section("/", 0, 0, QString::SectionSkipEmpty);
+        QString str2 = _fileCacheDir.section('/', 0, 0);
+        QString str3 = _fileCacheDir.section("/", 1, 1);
         sreachDir = "/" + _fileCacheDir.section("/", 0, 0);
+#endif
 #endif
         qint64 freeSpaceSize = KFileTransferCacheManage::getDiskFreeSpace(sreachDir);
         if (fileSize <= freeSpaceSize)
