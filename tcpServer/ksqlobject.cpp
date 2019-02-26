@@ -2,11 +2,24 @@
 
 #include <QDebug>
 
-KSQLObject::KSQLObject(const QString& databaseName)
+KSqliteDBAOperator::KSqliteDBAOperator()
 {
     _database = QSqlDatabase::addDatabase("QSQLITE");
+}
+
+KSqliteDBAOperator::~KSqliteDBAOperator()
+{
+    if (_database.isOpen())
+    {
+        _database.close();
+    }
+}
+
+bool KSqliteDBAOperator::open(const QString& databaseName)
+{
     _database.setDatabaseName(databaseName);
-    if (!_database.open())
+    bool ret = _database.open();
+    if (!ret)
     {
         qDebug() << "Error: Failed to connect database." << _database.lastError();
     }
@@ -14,4 +27,5 @@ KSQLObject::KSQLObject(const QString& databaseName)
     {
         qDebug() << "Succeed to connect database." ;
     }
+    return ret;
 }

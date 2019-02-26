@@ -28,14 +28,10 @@ public slots:
     void onCommandError(QAbstractSocket::SocketError);
     void on_connect_c();
     void on_connect_f();
-	void progress();
 private:
     explicit KFileTransferRecevicer(QObject *parent = nullptr);
     bool isExistFileInCacheDir(const QString& fileName, qint64 fileSize);
     void setCacheDir(const QString& dir);
-	
-	void beginSave();
-private:
     QTcpSocket *_pCommandSocket;
     QTcpSocket *_pFileSocket;
     QTcpServer *_pTcpServerControl;
@@ -50,8 +46,5 @@ private:
     bool _bCancel;
     QDateTime _startTime;
     bool _startTimeFlag;
-	QTimer* m_pTimerProgress;
-	bool m_bRunning;
-	QByteArrayList m_ByteArrayList;
 };
 

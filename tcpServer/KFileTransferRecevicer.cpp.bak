@@ -7,9 +7,8 @@
 KFileTransferRecevicer::KFileTransferRecevicer(QObject *parent)
     : QObject(parent)
     , _bCancel(false)
-	, m_bRunning(false)
 {
-	QString cacheDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + "/mediaCache/";
+    QString cacheDir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + "/mediaCache/";
     setCacheDir(cacheDir);
     _pCommandSocket = new QTcpSocket(this);
     _pFileSocket = new QTcpSocket(this);
@@ -19,9 +18,6 @@ KFileTransferRecevicer::KFileTransferRecevicer(QObject *parent)
 
     _pTcpServerControl->listen(QHostAddress::Any,PORT_COMMAND);
     _pTcpServerFile->listen(QHostAddress::Any,PORT_FILE);
-
-    m_pTimerProgress = new QTimer(this);
-    connect(m_pTimerProgress, &QTimer::timeout, this, &KFileTransferRecevicer::progress);
 
     connect(_pTcpServerControl,SIGNAL(newConnection()),this,SLOT(on_connect_c()));
     connect(_pTcpServerFile,SIGNAL(newConnection()),this,SLOT(on_connect_f()));
@@ -70,16 +66,6 @@ void KFileTransferRecevicer::on_connect_f(){
     _startTimeFlag = true;
 }
 
-void KFileTransferRecevicer::progress()
-{
-	send_command(FILE_REC_CODE, K_SUCCEED, QString::number(_recvSize));
-	if (_recvSize == _fileSize)
-	{
-		m_pTimerProgress->stop();
-	}
-	
-}
-
 void KFileTransferRecevicer::send_command(int code, int ret, QString additional)
 {
     QByteArray data;
@@ -116,8 +102,6 @@ void KFileTransferRecevicer::on_read_command()
         _fileSize = additionalInfo.section(SPLIT_ADDITION_INFO_MARK, 1, 1).toLongLong();
         _recvSize = 0;
         _bCancel = false;
-        m_ByteArrayList.clear();
-        m_pTimerProgress->start(500);
 
         /////////////////////////////////////////////////
         //TODO: 这里判断
@@ -157,8 +141,6 @@ void KFileTransferRecevicer::on_read_command()
                 _file.remove();
             }
             _bCancel = true;
-            m_bRunning = false;
-            m_pTimerProgress->stop();
             send_command(FILE_REC_CANCEL, K_SUCCEED, SUCCEED_CODE_3);
         }
         else
@@ -192,8 +174,10 @@ void KFileTransferRecevicer::on_read_command()
         QString sreachDir = "";
 #ifdef Q_OS_WIN
         sreachDir = _fileCacheDir.left(2);
-#elif Q_OS_LINUX
-        sreachDir = "/" + _fileCacheDir.section("/", 0, 0);
+#else
+#ifdef Q_OS_LINUX
+        sreachDir = "/" + _fileCacheDir.section("/", 0, 0, QString::SectionSkipEmpty);
+#endif
 #endif
         qint64 freeSpaceSize = KFileTransferCacheManage::getDiskFreeSpace(sreachDir);
         if (fileSize <= freeSpaceSize)
@@ -209,68 +193,15 @@ void KFileTransferRecevicer::on_read_command()
     }
 }
 
-
-void KFileTransferRecevicer::beginSave()
-{
-	while (true)
-	{
-        if (_bCancel) return;
-
-        if (m_ByteArrayList.size() > 0)
-		{
-			QByteArray buff = m_ByteArrayList.front();
-			m_ByteArrayList.pop_front();
-
-			qint64 len = _file.write(buff);
-			if (len > 0)
-				_recvSize += len;
-		}
-		else
-		{
-			if (_recvSize == _fileSize)
-			{
-				qint64 msec = _startTime.msecsTo(QDateTime::currentDateTime());
-				if (msec) qDebug() << "接收数据时间为:" << msec << "ms, \t速率:" << (_fileSize * 1000) / (1024 * 1024 * msec) << "MB/S";
-				QDir::setCurrent(_fileCacheDir);
-				_file.close();
-
-                m_bRunning = false;
-
-				return;
-			}
-			QThread::msleep(10);
-		}
-	}
-}
-
 void KFileTransferRecevicer::on_read_file()
 {
-	if (_startTimeFlag)
-	{
-		_startTime = QDateTime::currentDateTime();
-		_startTimeFlag = false;
-	}
-
-	if (_pFileSocket->bytesAvailable())
-	{
-		QByteArray buf = _pFileSocket->readAll();
-		m_ByteArrayList.push_back(buf);
-
-		if (!m_bRunning)
-		{
-			m_bRunning = true;
-			QtConcurrent::run([this] { beginSave(); });	
-		}
-	}
-
-
-	/*
     if (_startTimeFlag)
     {
         _startTime = QDateTime::currentDateTime();
         _startTimeFlag =false;
     }
 
+    if (_bCancel) return;
 
     qint64 dataSize = _pFileSocket->bytesAvailable();
     if ((dataSize >= SEND_BLOCK_SIZE) || (dataSize == (_fileSize - _recvSize)))
@@ -285,8 +216,8 @@ void KFileTransferRecevicer::on_read_file()
            qDebug()<< "接收的文件数据大小为:" << len / 1024 << "KB" << "\t已接收的数据大小为:" << _recvSize / 1024 << "KB";
         }
 
-      //  QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents); //让系统去处理其他的接收命令
-     //   send_command(FILE_REC_CODE, K_SUCCEED, QString::number(_recvSize));
+        QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents); //让系统去处理其他的接收命令
+        send_command(FILE_REC_CODE, K_SUCCEED, QString::number(_recvSize));
 
         if(_recvSize == _fileSize)
         {
@@ -296,7 +227,6 @@ void KFileTransferRecevicer::on_read_file()
             _file.close();
         }
     }
-	*/
 }
 
 void KFileTransferRecevicer::onFileError(QAbstractSocket::SocketError)

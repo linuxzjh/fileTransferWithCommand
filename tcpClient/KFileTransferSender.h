@@ -42,7 +42,7 @@ private:
     QString _filename;
     qint64 _filesize;
     qint64 _sendSize;
-
+	QString _serverip;
     QThreadPool _pool;
     QFuture<void> _fileTransferFuture;
     QMutex _cancelFileTransferMutex;
@@ -52,4 +52,5 @@ private:
     QString _cacheData;         //缓存数据容器
 
     int _timeoutMsec;           //超时时间
+	QString m_ipAddress;
 };

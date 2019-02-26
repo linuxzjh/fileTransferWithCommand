@@ -9,7 +9,7 @@
 #define PORT_FILE 8848
 
 #define USE_THREAD_TRANSFER
-#define USE_QTCREATOR
+//#define USE_QTCREATOR
 
 #define SEND_BLOCK_SIZE (qint64)(4 * 1024 * 1024)
 

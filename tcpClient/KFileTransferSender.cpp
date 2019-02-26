@@ -1,4 +1,4 @@
-﻿//#include "stdafx.h"
+//#include "stdafx.h"
 #include "KFileTransferSender.h"
 
 #ifndef USE_QTCREATOR
@@ -6,6 +6,7 @@
 #else
 #include <QSignalSpy>
 #endif 
+
 #include <QtConcurrent/QtConcurrent>
 #include <QDateTime>
 #include <QDebug>
@@ -17,6 +18,8 @@ KFileTransferSender::KFileTransferSender(QObject *parent)
     , _nextBlockSize(0)
     , _recvDataSize(0)
     , _timeoutMsec(1000)
+    , _filesize(0)
+    , _sendSize(0)
 {
     _pCommandSocket = new QTcpSocket(this);
     _pool.setMaxThreadCount(1);
@@ -24,6 +27,7 @@ KFileTransferSender::KFileTransferSender(QObject *parent)
 
 bool KFileTransferSender::connect_to_server(const QString &ipAddress, int port)
 {
+	m_ipAddress = ipAddress;
     _pCommandSocket->connectToHost(QHostAddress(ipAddress), port);
     bool ret = _pCommandSocket->waitForConnected(_timeoutMsec);
     if (ret)
@@ -207,7 +211,8 @@ void KFileTransferSender::send_file()
 {
     qint64 len = 0;
     QTcpSocket file_socket;
-    file_socket.connectToHost(QHostAddress(IP), PORT_FILE);
+    file_socket.connectToHost(QHostAddress(m_ipAddress), PORT_FILE);
+    file_socket.waitForConnected(-1);
 
 
     if (! _file.isOpen())
@@ -316,7 +321,7 @@ void KFileTransferSender::dealReadCommand()
             qint64 recv = additionalInfo.toLongLong();
             int progressVal = (recv * 100) / _filesize;
             emit progressValue(progressVal);
-            qDebug() << "文件大小:" << _filesize / 1024 << "KB,\t已接收数据大小:" << recv / 1024 << "KB";
+            qDebug() << "文件大小:" << _filesize  << "KB,\t已接收数据大小:" << recv << "KB";
         }
         else
         {
