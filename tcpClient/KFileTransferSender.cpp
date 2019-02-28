@@ -275,7 +275,10 @@ void KFileTransferSender::on_read_command()
 
     if (_pCommandSocket->bytesAvailable() >= _nextBlockSize)
     {
-        out >> _cacheData;
+        QByteArray array;
+        out >> array;
+        _cacheData = QString(array);
+ //       out >> _cacheData;
         dealReadCommand();
         _cacheData.clear();
         _nextBlockSize = 0;

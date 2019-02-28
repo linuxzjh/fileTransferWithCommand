@@ -1,10 +1,10 @@
-﻿#ifndef CONFIG_H
+#ifndef CONFIG_H
 #define CONFIG_H
 
 #include <QtCore>
 
 #define IP "127.0.0.1"
-//#define IP "192.168.0.120"
+//#define IP "192.168.0.126"
 #define PORT_COMMAND 8888
 #define PORT_FILE 8848
 

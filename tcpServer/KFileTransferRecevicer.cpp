@@ -87,7 +87,7 @@ void KFileTransferRecevicer::send_command(int code, int ret, QString additional)
     in.setVersion(QDataStream::Qt_5_9);
     QString head = QString("%1" + QString(SPLIT_TYPE_INFO_MAEK) + "%2" + SPLIT_TYPE_INFO_MAEK +"%3").arg(code).arg(ret).arg(additional);
     //QString head = QString("%1##%2##%3").arg(code).arg(ret).arg(additional);
-    in << qint64(2) << head;
+    in << qint64(2) << head.toUtf8();
     in.device()->seek(0);
     in << qint64(data.size() - sizeof(qint64));
     qint64 len = _pCommandSocket->write(data);
@@ -116,7 +116,9 @@ void KFileTransferRecevicer::on_read_command()
         _fileSize = additionalInfo.section(SPLIT_ADDITION_INFO_MARK, 1, 1).toLongLong();
         _recvSize = 0;
         _bCancel = false;
+        m_byteArrayListLock.lockForWrite();
         m_ByteArrayList.clear();
+        m_byteArrayListLock.unlock();
         m_pTimerProgress->start(500);
 
         /////////////////////////////////////////////////
@@ -193,7 +195,7 @@ void KFileTransferRecevicer::on_read_command()
 #ifdef Q_OS_WIN
         sreachDir = _fileCacheDir.left(2);
 #elif Q_OS_LINUX
-        sreachDir = "/" + _fileCacheDir.section("/", 0, 0);
+        sreachDir = "/" + _fileCacheDir.section("/", 0, 0, QString::SectionSkipEmpty);
 #endif
         qint64 freeSpaceSize = KFileTransferCacheManage::getDiskFreeSpace(sreachDir);
         if (fileSize <= freeSpaceSize)
@@ -214,12 +216,14 @@ void KFileTransferRecevicer::beginSave()
 {
 	while (true)
 	{
-        if (_bCancel) return;
+        if (_bCancel || ! _file.isOpen()) return;
 
+        m_byteArrayListLock.lockForWrite();
         if (m_ByteArrayList.size() > 0)
 		{
 			QByteArray buff = m_ByteArrayList.front();
 			m_ByteArrayList.pop_front();
+            m_byteArrayListLock.unlock();
 
 			qint64 len = _file.write(buff);
 			if (len > 0)
@@ -227,6 +231,7 @@ void KFileTransferRecevicer::beginSave()
 		}
 		else
 		{
+            m_byteArrayListLock.unlock();
 			if (_recvSize == _fileSize)
 			{
 				qint64 msec = _startTime.msecsTo(QDateTime::currentDateTime());
@@ -254,7 +259,9 @@ void KFileTransferRecevicer::on_read_file()
 	if (_pFileSocket->bytesAvailable())
 	{
 		QByteArray buf = _pFileSocket->readAll();
+        m_byteArrayListLock.lockForWrite();
 		m_ByteArrayList.push_back(buf);
+        m_byteArrayListLock.unlock();
 
 		if (!m_bRunning)
 		{
@@ -263,40 +270,6 @@ void KFileTransferRecevicer::on_read_file()
 		}
 	}
 
-
-	/*
-    if (_startTimeFlag)
-    {
-        _startTime = QDateTime::currentDateTime();
-        _startTimeFlag =false;
-    }
-
-
-    qint64 dataSize = _pFileSocket->bytesAvailable();
-    if ((dataSize >= SEND_BLOCK_SIZE) || (dataSize == (_fileSize - _recvSize)))
-    {
-        QByteArray buf = _pFileSocket->readAll();
-        //qint64 len = buf.size();
-        qint64 len = _file.write(buf);
-
-        if(len > 0)
-        {
-           _recvSize += len;
-           qDebug()<< "接收的文件数据大小为:" << len / 1024 << "KB" << "\t已接收的数据大小为:" << _recvSize / 1024 << "KB";
-        }
-
-      //  QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents); //让系统去处理其他的接收命令
-     //   send_command(FILE_REC_CODE, K_SUCCEED, QString::number(_recvSize));
-
-        if(_recvSize == _fileSize)
-        {
-            qint64 msec = _startTime.msecsTo(QDateTime::currentDateTime());
-            if (msec) qDebug() << "接收数据时间为:" << msec << "ms, \t速率:"<< (_fileSize * 1000) / (1024*1024* msec) << "MB/S";
-            QDir::setCurrent(_fileCacheDir);
-            _file.close();
-        }
-    }
-	*/
 }
 
 void KFileTransferRecevicer::onFileError(QAbstractSocket::SocketError)

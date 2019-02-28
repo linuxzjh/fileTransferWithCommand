@@ -33,7 +33,6 @@ private:
     explicit KFileTransferRecevicer(QObject *parent = nullptr);
     bool isExistFileInCacheDir(const QString& fileName, qint64 fileSize);
     void setCacheDir(const QString& dir);
-	
 	void beginSave();
 private:
     QTcpSocket *_pCommandSocket;
@@ -53,5 +52,6 @@ private:
 	QTimer* m_pTimerProgress;
 	bool m_bRunning;
 	QByteArrayList m_ByteArrayList;
+    QReadWriteLock m_byteArrayListLock;
 };
 
