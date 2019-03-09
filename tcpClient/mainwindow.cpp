@@ -1,6 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-
+#include "kfiletransfercachemanage.h"
 #include <QMessageBox>
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -9,8 +9,12 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     ui->setupUi(this);
     mytcpsocket = new KFileTransferSender(parent);
-    connect(mytcpsocket, SIGNAL(progressValue(int)), this, SLOT(on_progressValueChanged(int)));
+    connect(mytcpsocket, SIGNAL(progressValue(const QString&, int)), this, SLOT(on_progressValueChanged(const QString&,int)));
     connect(mytcpsocket, SIGNAL(errorState(int,int)), this, SLOT(on_error_state(int, int)));
+    connect(mytcpsocket, &KFileTransferSender::fileTransferFinish, this, [this]{
+       ui->progressBar->setValue(100);
+       QMessageBox::information(this, "传输完成", "传输完成");
+    });
 
     ui->btn_upFile->setEnabled(false);
     ui->btn_cancel->setEnabled(false);
@@ -55,8 +59,9 @@ void MainWindow::on_btn_cancel_clicked()
     mytcpsocket->cancelSendFile();
 }
 
-void MainWindow::on_progressValueChanged(int progressVal)
+void MainWindow::on_progressValueChanged(const QString& fileName, int progressVal)
 {
+    qDebug() << "current transfer fileName===>" << fileName << ",progressVal===>" << progressVal;
     ui->progressBar->setValue(progressVal);
 
     ui->btn_cancel->setEnabled(progressVal);
@@ -81,13 +86,26 @@ void MainWindow::on_btn_freeDiskCheck_clicked()
 void MainWindow::on_btn_isExistFile_clicked()
 {
     QString filePath = ui->lineEdit->text();
-    QFileInfo fileInfo(filePath);
-    if (fileInfo.isFile())
+    QFile file(filePath);
+    if (file.exists())
     {
         checkfileStru fileStru;
-        fileStru.filePath = fileInfo.absoluteFilePath();
-        fileStru.fileSize = fileInfo.size();
+        fileStru.filePath = file.fileName();
+        fileStru.fileSize = file.size();
         fileStru.bExist = false;
+
+        QStringList fileNameSplitList = filePath.split(".");
+        QString fileSuffix = fileNameSplitList.last();
+        if (fileSuffix.compare("PPT", Qt::CaseInsensitive) == 0 || fileSuffix.compare("pptx", Qt::CaseInsensitive) == 0)
+        {
+            fileStru.md5Str = KFileTransferCacheManage::getFileMd5(file);
+        }
+        else
+        {
+            fileStru.md5Str = "";
+        }
+
+
 
         QList<checkfileStru> fileList;
         fileList.append(fileStru);

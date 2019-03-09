@@ -22,7 +22,7 @@ private slots:
     void on_btn_selectFile_clicked();
     void on_btn_upFile_clicked();
     void on_btn_cancel_clicked();
-    void on_progressValueChanged(int);
+    void on_progressValueChanged(const QString&,int);
     void on_error_state(int, int);
     void on_btn_freeDiskCheck_clicked();
 

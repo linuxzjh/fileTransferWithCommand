@@ -27,13 +27,15 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         main.cpp \
         mainwindow.cpp \
-        KFileTransferSender.cpp
+        KFileTransferSender.cpp \
+    kfiletransfercachemanage.cpp
 
 HEADERS += \
         mainwindow.h \
         config.h \
         KFileTransferSender.h \
-    Singleton.h
+    Singleton.h \
+    kfiletransfercachemanage.h
 
 FORMS += \
         mainwindow.ui
